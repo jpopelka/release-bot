@@ -1,0 +1,71 @@
+From 858bdfbdf1071fefc9813b8a466db0441ce4ac51 Mon Sep 17 00:00:00 2001
+From: Jiri Popelka <jpopelka@redhat.com>
+Date: Wed, 2 May 2018 20:15:37 +0200
+Subject: [PATCH] Use getpass.getuser() instead of pwd.getpwuid(os.getuid())[0]
+
+getpass.getuser() eventually also calls pwd.getpwuid(os.getuid())[0],
+but first checks whether there's any of LOGNAME, USER, LNAME and USERNAME
+env. variables set. If yes, then it returns its value.
+
+This is useful in Openshift where a container has random uid
+and getpwuid(random_uid) fails with:
+KeyError: 'getpwuid(): uid not found: random_uid'
+
+Signed-off-by: Jiri Popelka <jpopelka@redhat.com>
+---
+ pyrpkg/__init__.py | 4 ++--
+ pyrpkg/cli.py      | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/pyrpkg/__init__.py b/pyrpkg/__init__.py
+index 50dec6f..52d8927 100644
+--- a/pyrpkg/__init__.py
++++ b/pyrpkg/__init__.py
+@@ -13,13 +13,13 @@ from __future__ import print_function
+ import cccolutils
+ import errno
+ import fnmatch
++import getpass
+ import git
+ import glob
+ import koji
+ import logging
+ import os
+ import posixpath
+-import pwd
+ import re
+ import rpm
+ import shutil
+@@ -849,7 +849,7 @@ class Commands(object):
+ 
+         # If a site figures out the user differently (like from ssl cert)
+         # this is where you'd override and make that happen
+-        self._user = pwd.getpwuid(os.getuid())[0]
++        self._user = getpass.getuser()
+ 
+     @property
+     def password(self):
+diff --git a/pyrpkg/cli.py b/pyrpkg/cli.py
+index d19a89f..10d9e3d 100644
+--- a/pyrpkg/cli.py
++++ b/pyrpkg/cli.py
+@@ -14,9 +14,9 @@
+ 
+ from __future__ import print_function
+ import argparse
++import getpass
+ import logging
+ import os
+-import pwd
+ import random
+ import string
+ import sys
+@@ -1801,4 +1801,4 @@ see API KEY section of copr-cli(1) man page.
+         if self.args.user:
+             self.user = self.args.user
+         else:
+-            self.user = pwd.getpwuid(os.getuid())[0]
++            self.user = getpass.getuser()
+-- 
+2.17.0
+

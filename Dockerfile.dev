@@ -16,6 +16,8 @@ LABEL summary="Automated releasing from GitHub repositories" \
       usage="s2i build <CONFIGURATION-REPOSITORY> usercont/release-bot:dev <APP-NAME>"
 
 RUN dnf install -y python2-pip fedpkg git krb5-workstation
+COPY patches/ /tmp/patches/
+RUN /tmp/patches/apply_patches.sh
 
 RUN mkdir -p ${HOME} && \
     useradd -u 1001 -r -g 0 -d ${HOME} -s /sbin/nologin \

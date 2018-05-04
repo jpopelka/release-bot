@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+import getpass
 from glob import glob
 import os
 from sys import exit
@@ -10,6 +12,22 @@ class Fedora:
     def __init__(self, configuration):
         self.conf = configuration
         self.logger = configuration.logger
+
+    @contextmanager
+    def username(self):
+        """Workaround for getpass.getuser() failing on Openshift due to random uid."""
+        user = ''
+        try:
+            user = getpass.getuser()
+        except KeyError:
+            # if LOGNAME is set, getpass.getuser() returns its value instead of failing
+            os.environ['LOGNAME'] = self.conf.fas_username
+
+        try:
+            yield
+        finally:
+            if not user:
+                del os.environ['LOGNAME']
 
     def fedpkg_clone_repository(self, directory, name):
         if os.path.isdir(directory):
@@ -186,37 +204,36 @@ class Fedora:
             self.logger.warning(
                 f"Can't obtain a valid kerberos ticket, skipping fedora release")
             return False
-        tmp = TemporaryDirectory()
 
-        # clone the repository from dist-git
-        fedpkg_root = self.fedpkg_clone_repository(tmp.name, self.conf.repository_name)
-        if not fedpkg_root:
-            return False
+        with TemporaryDirectory() as tmp:
+            with self.username():
+                # clone the repository from dist-git
+                fedpkg_root = self.fedpkg_clone_repository(tmp, self.conf.repository_name)
+                if not fedpkg_root:
+                    return False
 
-        # make sure the current branch is master
-        if not self.fedpkg_switch_branch(fedpkg_root, "master"):
-            return False
+                # make sure the current branch is master
+                if not self.fedpkg_switch_branch(fedpkg_root, "master"):
+                    return False
 
-        # update package
-        if not self.update_package(fedpkg_root, "master", new_release):
-            tmp.cleanup()
-            return False
+                # update package
+                if not self.update_package(fedpkg_root, "master", new_release):
+                    return False
 
-        # cycle through other branches and merge the changes there, or do them from scratch, push, build
-        for branch in new_release['fedora_branches']:
-            if not self.fedpkg_switch_branch(fedpkg_root, branch, fail=False):
-                continue
-            if not self.fedpkg_merge(fedpkg_root, branch, True, False):
-                self.logger.debug(
-                    f"Trying to make the changes on branch {branch!r} from scratch")
-                self.update_package(fedpkg_root, branch, new_release)
-                continue
-            if not self.fedpkg_push(fedpkg_root, branch, False):
-                continue
-            self.fedpkg_build(fedpkg_root, branch, False, False)
+                # cycle through other branches and merge the changes there,
+                # or do them from scratch, push, build
+                for branch in new_release['fedora_branches']:
+                    if not self.fedpkg_switch_branch(fedpkg_root, branch, fail=False):
+                        continue
+                    if not self.fedpkg_merge(fedpkg_root, branch, True, False):
+                        self.logger.debug(
+                            f"Trying to make the changes on branch {branch!r} from scratch")
+                        self.update_package(fedpkg_root, branch, new_release)
+                        continue
+                    if not self.fedpkg_push(fedpkg_root, branch, False):
+                        continue
+                    self.fedpkg_build(fedpkg_root, branch, False, False)
 
-            # TODO: bodhi updates submission
+                    # TODO: bodhi updates submission
 
-        # clean directory
-        tmp.cleanup()
         return True

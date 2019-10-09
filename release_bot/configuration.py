@@ -152,6 +152,7 @@ class Configuration:
                 self.logger.warning(msg)
                 parsed_conf['trigger_on_issue'] = False
 
+        self.logger.debug(f"Loaded release-conf.yaml: {parsed_conf}")
         return parsed_conf
 
     def set_pypi_project(self, parsed_conf, setup_cfg=None):

@@ -1,7 +1,6 @@
 .PHONY: test
 
-IMAGE_NAME := usercont/release-bot
-IMAGE_NAME_DEV := usercont/release-bot:dev
+IMAGE_NAME := usercont/release-bot:dev
 TEST_IMAGE_NAME := release-bot-tests
 
 image: files/install-rpm-packages.yaml files/recipe.yaml

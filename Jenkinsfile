@@ -34,7 +34,7 @@ node('userspace-containerization'){
 
             stage ("setup"){
                 onmyduffynode "yum -y install docker make"
-                synctoduffynode "*" // copy all source files
+                synctoduffynode "./." // copy all source files (hidden too, we need .git/)
                 onmyduffynode "systemctl start docker"
             }
 

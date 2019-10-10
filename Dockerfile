@@ -16,7 +16,7 @@ RUN dnf install -y ansible \
 
 COPY setup.py setup.cfg files/recipe.yaml /src/
 # setuptools-scm
-COPY .git /src/.git
+COPY .git/ /src/.git/
 COPY release_bot/ /src/release_bot/
 
 RUN cd /src/ \

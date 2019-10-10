@@ -23,6 +23,7 @@ from release_bot.configuration import configuration
 from release_bot.releasebot import ReleaseBot
 
 DEFAULT_CONF_FILE = "/home/release-bot/.config/conf.yaml"
+logger = configuration.logger
 
 
 @celery_app.task(name="task.celery_task.parse_web_hook_payload")
@@ -44,7 +45,6 @@ def parse_web_hook_payload(webhook_payload):
             installation_id = webhook_payload['installation']['id']
             repositories_added = webhook_payload['repositories_added']
             save_new_installations(installation_id, repositories_added, db)
-
         if webhook_payload['action'] == 'removed':  # detect when repo uninstall app
             repositories_removed = webhook_payload['repositories_removed']
             delete_installations(repositories_removed, db)
@@ -88,7 +88,7 @@ def set_configuration(webhook_payload, db, issue=True):
         f'{configuration.github_token}@github.com/' \
         f'{configuration.repository_owner}/{configuration.repository_name}.git'
 
-    return ReleaseBot(configuration), configuration.logger
+    return ReleaseBot(configuration)
 
 
 def handle_issue(webhook_payload, db):
@@ -98,7 +98,7 @@ def handle_issue(webhook_payload, db):
     :param db: Redis instance
     :return:
     """
-    release_bot, logger = set_configuration(webhook_payload, db=db, issue=True)
+    release_bot = set_configuration(webhook_payload, db=db, issue=True)
 
     logger.info("Resolving opened issue")
     release_bot.git.pull()
@@ -122,7 +122,7 @@ def handle_pr(webhook_payload, db):
     :param db: Redis instance
     :return:
     """
-    release_bot, logger = set_configuration(webhook_payload, db=db, issue=False)
+    release_bot = set_configuration(webhook_payload, db=db, issue=False)
 
     logger.info("Resolving opened PR")
     release_bot.git.pull()
@@ -150,11 +150,15 @@ def save_new_installations(installation_id, repositories_added, db):
     :param db: Redis instance
     :return: True if data was saved successfully into Redis
     """
+    logger.debug(f"Saving: {installation_id} added to {repositories_added}")
     with db.pipeline() as pipe:
         for repo in repositories_added:
             pipe.set(repo["full_name"], installation_id)
         pipe.execute()
-    return db.save()
+    success = db.save()
+    if not success:
+        logger.error(f"Failed to save {installation_id}:{repositories_added}")
+    return success
 
 
 def delete_installations(repositories_removed, db):
@@ -164,8 +168,12 @@ def delete_installations(repositories_removed, db):
     :param db: Redis instance
     :return: True if data was deleted successfully into Redis
     """
+    logger.debug(f"Removing: {repositories_removed}")
     with db.pipeline() as pipe:
         for repo in repositories_removed:
             pipe.delete(repo["full_name"])
         pipe.execute()
-    return db.save()
+    success = db.save()
+    if not success:
+        logger.error(f"Failed to remove {repositories_removed}")
+    return success

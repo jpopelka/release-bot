@@ -1,11 +1,10 @@
 .PHONY: test
 
-IMAGE_NAME := usercont/release-bot
-IMAGE_NAME_DEV := usercont/release-bot:dev
+IMAGE_NAME := usercont/release-bot:dev
 TEST_IMAGE_NAME := release-bot-tests
 
 image: files/install-rpm-packages.yaml files/recipe.yaml
-	docker build --rm -f Dockerfile.app --tag=$(IMAGE_NAME) .
+	docker build --rm -f Dockerfile --tag=$(IMAGE_NAME) .
 
 image-test:
 	docker build --tag=$(TEST_IMAGE_NAME) -f Dockerfile.test .

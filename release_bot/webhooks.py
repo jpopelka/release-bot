@@ -31,10 +31,10 @@ class GithubWebhooksHandler(View):
         self.logger = conf.logger
 
     def dispatch_request(self):
-        self.logger.info(f'New github webhook call from detected')
+        self.logger.info('New github webhook call detected')
         if request.is_json:
             celery_app.send_task(name="task.celery_task.parse_web_hook_payload",
-                                 kwargs={"webhook_payload": request.get_json()})
+                                 kwargs={"webhook_payload": request.json})
         else:
             self.logger.error("This webhook doesn't contain JSON")
         return jsonify(result={"status": 200})
